@@ -11,7 +11,7 @@ LLM4Exam is a system designed to help users efficiently and conveniently create 
 # generator.py中替换可用的key和url
 
 pip install -r requirement.txt
-
+python build_index.py #建立题库
 python main.py
 
 # 首次启动会自动加载paraphrase-multilingual-MiniLM-L12-v2模型，响应较慢
@@ -29,7 +29,9 @@ faiss-cpu>=1.7.2
 openai==1.8.2
 pydantic>=1.8.2
 python-multipart>=0.0.5
-numpy>=1.21.0
+numpy==1.19.0
+pylatexenc==2.10
+docx==0.2.4
 ```
 
 ## Structure
