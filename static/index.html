@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>大模型驱动的智能命题系统</title>
+<style>
+:root {
+  --primary-color: #2c3e50;
+  --accent-color: #3498db;
+  --success-color: #27ae60;
+  --text-color: #34495e;
+  --error-color: #e74c3c;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  padding: 2rem 1rem;
+  background: #f5f6fa;
+  color: var(--text-color);
+  max-width: 800px;
+  margin: 0 auto;
+  transition: all 0.3s ease;
+}
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+.form-container {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+.form-container:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+.input-group {
+  margin-bottom: 1.5rem;
+}
+.input-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--primary-color);
+}
+.input-group label.required:before {
+  content: "*";
+  color: var(--error-color);
+  margin-right: 4px;
+}
+input, textarea, select {
+  width: 100%;
+  padding: 0.8rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent-color);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+.question-type-group {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.question-type-group select,
+.question-type-group .count-input,
+.question-type-group .custom-type-input {
+  flex: 1;
+  max-width: 25%;
+}
+.custom-type-input {
+  display: none;
+}
+.count-input {
+  padding: 0.5rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+}
+.button {
+  background: var(--accent-color);
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.button:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.add-button {
+  background: hsl(209, 100%, 68%);
+  width: 20%;
+}
+.download-link {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 1rem 2rem;
+  background: var(--success-color);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+.download-link:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.3);
+}
+.error-message {
+  color: var(--error-color);
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+.grade-detail-group {
+  margin-top: 0.5rem;
+  display: none;
+}
+.delete-button {
+  background: #e74c3c !important;
+  padding: 0.5rem 1rem !important;
+  flex: 0 0 auto;
+}
+.delete-button:hover {
+  background: #c0392b !important;
+}
+.progress-container {
+  margin-top: 2rem;
+  text-align: center;
+}
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+.progress-label {
+  font-weight: 500;
+  color: var(--primary-color);
+}
+.progress-percentage {
+  font-weight: 600;
+  color: var(--accent-color);
+}
+.progress-bar-wrapper {
+  height: 16px;
+  background: #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3498db, #2ecc71);
+  border-radius: 10px;
+  width: 0%;
+  transition: width 0.5s ease-out;
+}
+.status-message {
+  margin-top: 1rem;
+  text-align: center;
+  font-weight: 500;
+}
+.status-message.generating {
+  color: var(--accent-color);
+}
+.status-message.success {
+  color: var(--success-color);
+}
+.status-message.error {
+  color: var(--error-color);
+}
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
+.generating-animation {
+  animation: pulse 1.5s infinite;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+}
+.shake {
+  animation: shake 0.5s;
+}
+</style>
+</head>
+<body>
+<header class="header">
+  <h1>📚 大模型驱动的智能命题系统</h1>
+  <p>智能创建个性化教学试卷</p>
+</header>
+
+<main>
+  <div class="form-container">
+    <div class="input-group">
+      <label for="subject" class="required">学科名称</label>
+      <select id="subject">
+        <option>语文</option>
+        <option selected>数学</option>
+        <option>英语</option>
+        <option>物理</option>
+        <option>化学</option>
+        <option>生物</option>
+        <option>历史</option>
+        <option>地理</option>
+        <option>政治</option>
+        <option value="other">其他</option>
+      </select>
+      <input type="text" class="dynamic-input" id="subject-other" placeholder="请输入其他学科名称">
+    </div>
+
+    <div class="input-group">
+      <label for="grade" class="required">适用年级</label>
+      <select id="grade">
+        <option>小学</option>
+        <option selected>初中</option>
+        <option>高中</option>
+        <option>大学</option>
+        <option value="other">其他</option>
+      </select>
+      <input type="text" class="dynamic-input" id="grade-other" placeholder="请输入其他年级">
+      
+      <div id="grade-detail-primary" class="grade-detail-group">
+        <select id="primary-grade">
+          <option>一年级</option>
+          <option>二年级</option>
+          <option>三年级</option>
+          <option>四年级</option>
+          <option>五年级</option>
+          <option>六年级</option>
+        </select>
+      </div>
+      
+      <div id="grade-detail-middle" class="grade-detail-group">
+        <select id="middle-grade">
+          <option>七年级</option>
+          <option>八年级</option>
+          <option>九年级</option>
+        </select>
+      </div>
+      
+      <div id="grade-detail-high" class="grade-detail-group">
+        <select id="high-grade">
+          <option>高一</option>
+          <option>高二</option>
+          <option>高三</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>题目设置 <span style="color: gray;">（可选）</span></label>
+      <div id="question-type-container"></div>
+      <button type="button" class="button add-button" onclick="addQuestionType()">✚ 添加题型</button>
+    </div>
+
+    <div class="input-group">
+      <label for="prompt">生成要求 <span style="color: gray;">（可选）</span></label>
+      <textarea id="prompt" placeholder="例如：题目难度适中，包含xxx题目"></textarea>
+    </div>
+
+    <div class="input-group" style="text-align: center;">
+      <button class="button" onclick="generate()" id="generateBtn">立即生成试卷</button>
+    </div>
+  </div>
+
+  <div id="download" style="text-align: center; margin-top: 1.5rem;"></div>
+  <div id="error" class="error-message"></div>
+  
+  <div id="progress-container" class="progress-container" style="display: none;">
+    <div class="progress-header">
+      <span class="progress-label">生成进度</span>
+      <span id="progress-percentage" class="progress-percentage">0%</span>
+    </div>
+    <div class="progress-bar-wrapper">
+      <div id="progress-bar" class="progress-bar"></div>
+    </div>
+    <div id="status-message" class="status-message generating">试卷生成中，请稍候...</div>
+  </div>
+</main>
+
+<script>
+// 定义学科-年级-题型映射关系
+const QUESTION_TYPE_MAP = {
+  '数学': {
+    '小学': ['选择题', '判断题', '填空题', '计算题', '应用题'],
+    '初中': ['选择题', '填空题', '计算题', '解答题'],
+    '高中': ['选择题', '填空题', '计算题', '解答题', '证明题', '综合题'],
+    '大学': ['选择题', '填空题', '解答题', '证明题', '综合题'],
+    '其他': ['选择题', '判断题', '填空题', '计算题', '简答题', '综合题']
+  },
+  '语文': {
+    '小学': ['选择题', '判断题', '填空题', '阅读理解', '作文'],
+    '初中': ['选择题', '填空题', '阅读理解', '文言文阅读', '作文'],
+    '高中': ['选择题', '填空题', '阅读理解', '文言文阅读', '古诗词鉴赏', '作文'],
+    '大学': ['选择题', '填空题', '阅读理解', '文言文阅读', '古诗词鉴赏', '作文'],
+    '其他': ['选择题', '判断题', '填空题', '简答题', '综合题']
+  },
+  '英语': {
+    '小学': ['选择题', '判断题', '填空题', '阅读理解', '写作'],
+    '初中': ['选择题', '填空题', '完形填空', '阅读理解', '写作'],
+    '高中': ['选择题', '填空题', '完形填空', '阅读理解', '七选五', '写作'],
+    '大学': ['选择题', '填空题', '完形填空', '阅读理解', '七选五', '写作'],
+    '其他': ['选择题', '判断题', '填空题', '简答题', '综合题']
+  },
+  '物理': {
+    '初中': ['选择题', '填空题', '作图题', '实验题', '计算题'],
+    '高中': ['选择题', '填空题', '实验题', '计算题', '综合题'],
+    '大学': ['选择题', '填空题', '实验题', '计算题', '证明题', '综合题'],
+    '其他': ['选择题', '填空题', '计算题', '简答题', '综合题']
+  },
+  '化学': {
+    '初中': ['选择题', '填空题', '简答题', '实验题', '计算题'],
+    '高中': ['选择题', '填空题', '实验题', '推断题', '计算题', '综合题'],
+    '大学': ['选择题', '填空题', '实验题', '推断题', '计算题', '综合题'],
+    '其他': ['选择题', '填空题', '计算题', '简答题', '综合题']
+  },
+  '生物': {
+    '初中': ['选择题', '判断题', '填空题', '简答题'],
+    '高中': ['选择题', '填空题', '简答题', '实验题', '综合题'],
+    '大学': ['选择题', '填空题', '简答题', '实验题', '综合题'],
+    '其他': ['选择题', '判断题', '填空题', '简答题', '综合题']
+  },
+  '历史': {
+    '初中': ['选择题', '判断题', '填空题', '材料题', '简答题'],
+    '高中': ['选择题', '材料题', '简答题', '论述题'],
+    '大学': ['选择题', '材料题', '简答题', '论述题'],
+    '其他': ['选择题', '判断题', '填空题', '简答题', '综合题']
+  },
+  '地理': {
+    '初中': ['选择题', '判断题', '填空题', '读图题', '简答题'],
+    '高中': ['选择题', '读图题', '简答题', '综合题'],
+    '大学': ['选择题', '读图题', '简答题', '综合题'],
+    'other': ['选择题', '判断题', '填空题', '简答题', '综合题']
+  },
+  '政治': {
+    '初中': ['选择题', '判断题', '填空题', '简答题', '材料分析题'],
+    '高中': ['选择题', '简答题', '材料分析题', '论述题'],
+    '大学': ['选择题', '简答题', '材料分析题', '论述题'],
+    'other': ['选择题', '判断题', '填空题', '简答题', '综合题']
+  },
+  // 其他学科使用默认题型
+  '_default': {
+    '_default': ['选择题', '判断题', '填空题', '简答题', '综合题']
+  }
+};
+
+// 初始化函数
+function setupDynamicInputs() {
+  const config = [
+    { select: 'subject', input: 'subject-other' },
+    { select: 'grade', input: 'grade-other' }
+  ];
+
+  config.forEach(({ select, input }) => {
+    const selectEl = document.getElementById(select);
+    const inputEl = document.getElementById(input);
+    const toggle = () => {
+      inputEl.style.display = selectEl.value === 'other' ? 'block' : 'none';
+      if (selectEl.value !== 'other') inputEl.value = '';
+    };
+    selectEl.addEventListener('change', toggle);
+    toggle();
+  });
+
+  // 年级细分选择功能
+  const gradeSelect = document.getElementById('grade');
+  const primaryGrade = document.getElementById('grade-detail-primary');
+  const middleGrade = document.getElementById('grade-detail-middle');
+  const highGrade = document.getElementById('grade-detail-high');
+  const otherGrade = document.getElementById('grade-other');
+
+  function updateGradeDetail() {
+    primaryGrade.style.display = 'none';
+    middleGrade.style.display = 'none';
+    highGrade.style.display = 'none';
+    
+    switch(gradeSelect.value) {
+      case '小学':
+        primaryGrade.style.display = 'block';
+        break;
+      case '初中':
+        middleGrade.style.display = 'block';
+        break;
+      case '高中':
+        highGrade.style.display = 'block';
+        break;
+    }
+    
+    // 学科或年级变化时更新题型
+    resetQuestionTypes();
+  }
+
+  gradeSelect.addEventListener('change', updateGradeDetail);
+  updateGradeDetail();
+  
+  // 学科变化时也更新题型
+  document.getElementById('subject').addEventListener('change', resetQuestionTypes);
+}
+
+const container = document.getElementById('question-type-container');
+
+// 获取当前学科和年级对应的题型列表
+function getAvailableQuestionTypes() {
+  const subject = getDynamicValue('subject') || '数学';
+  const grade = getGradeDetail() || '高中';
+  
+  // 查找对应的题型
+  let types = [];
+  if (QUESTION_TYPE_MAP[subject]) {
+    // 尝试匹配具体年级
+    if (QUESTION_TYPE_MAP[subject][grade]) {
+      types = QUESTION_TYPE_MAP[subject][grade];
+    } 
+    // 尝试匹配学段（小学/初中/高中/大学）
+    else {
+      const gradeLevel = document.getElementById('grade').value;
+      if (QUESTION_TYPE_MAP[subject][gradeLevel]) {
+        types = QUESTION_TYPE_MAP[subject][gradeLevel];
+      } 
+      // 使用该学科的"其他"选项
+      else if (QUESTION_TYPE_MAP[subject]['其他']) {
+        types = QUESTION_TYPE_MAP[subject]['其他'];
+      }
+    }
+  }
+  
+  // 如果找不到匹配，使用默认题型
+  if (types.length === 0) {
+    types = QUESTION_TYPE_MAP['_default']['_default'];
+  }
+  
+  return types;
+}
+
+// 重置所有题型选择框
+function resetQuestionTypes() {
+  // 保存当前已添加的题型数量
+  const currentCount = container.querySelectorAll('.question-type-group').length;
+  
+  // 清空容器
+  container.innerHTML = '';
+  
+  // 重新添加题型选择框
+  for (let i = 0; i < currentCount; i++) {
+    addQuestionType();
+  }
+  
+  // 如果没有题型框，添加一个
+  if (currentCount === 0) {
+    addQuestionType();
+  }
+}
+
+function addQuestionType() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'question-type-group';
+
+  const select = document.createElement('select');
+  const optionOther = document.createElement('option');
+  optionOther.value = '其他';
+  optionOther.textContent = '其他';
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'button delete-button';
+  deleteBtn.innerHTML = '✘ 删除';
+  deleteBtn.onclick = () => wrapper.remove();
+
+  // 获取当前所有已选择的题型（不包括"其他"）
+  const selectedTypes = Array.from(container.querySelectorAll('select'))
+    .map(s => s.value)
+    .filter(val => val !== '其他');
+
+  // 获取可用的题型列表
+  const availableTypes = getAvailableQuestionTypes();
+  
+  // 添加未被选过的题型
+  availableTypes.forEach(type => {
+    if (!selectedTypes.includes(type)) {
+      const option = document.createElement('option');
+      option.value = type;
+      option.textContent = type;
+      select.appendChild(option);
+    }
+  });
+
+  select.appendChild(optionOther);
+
+  const customInput = document.createElement('input');
+  customInput.type = 'text';
+  customInput.className = 'custom-type-input';
+  customInput.placeholder = '请输入自定义题型名称';
+
+  const countInput = document.createElement('input');
+  countInput.type = 'number';
+  countInput.className = 'count-input';
+  countInput.min = 0;
+  countInput.max = 50;
+  countInput.value = 0;
+  countInput.placeholder = '数量';
+
+  select.addEventListener('change', () => {
+    customInput.style.display = select.value === '其他' ? 'block' : 'none';
+    if (select.value !== '其他') customInput.value = '';
+  });
+
+  wrapper.appendChild(select);
+  wrapper.appendChild(customInput);
+  wrapper.appendChild(countInput);
+  wrapper.appendChild(deleteBtn); 
+  container.appendChild(wrapper);
+
+  // 初始状态检查
+  if (select.value === '其他') {
+    customInput.style.display = 'block';
+  }
+}
+
+function getDynamicValue(selectId) {
+  const select = document.getElementById(selectId);
+  const input = document.getElementById(`${selectId}-other`);
+  return select.value === 'other' ? input.value.trim() : select.value;
+}
+
+function getGradeDetail() {
+  const gradeSelect = document.getElementById('grade');
+  switch(gradeSelect.value) {
+    case '小学':
+      return document.getElementById('primary-grade').value;
+    case '初中':
+      return document.getElementById('middle-grade').value;
+    case '高中':
+      return document.getElementById('high-grade').value;
+    case '大学':
+      return '大学';
+    case 'other':
+      return document.getElementById('grade-other').value.trim();
+    default:
+      return '';
+  }
+}
+
+function collectQuestionCounts() {
+  const entries = container.querySelectorAll('.question-type-group');
+  const result = {};
+
+  for (const entry of entries) {
+    const typeSelect = entry.querySelector('select');
+    const customInput = entry.querySelector('.custom-type-input');
+    const countInput = entry.querySelector('.count-input');
+
+    const type = typeSelect.value === '其他' 
+      ? customInput.value.trim()
+      : typeSelect.value;
+
+    const count = parseInt(countInput.value) || 0;
+
+    if (!type && count > 0) throw new Error('请输入自定义题型名称');
+    if (type && count > 0) result[type] = count;
+  }
+
+  return result;
+}
+
+// 更新进度条函数
+function updateProgressBar(percentage, message = '') {
+  const progressBar = document.getElementById('progress-bar');
+  const progressPercentage = document.getElementById('progress-percentage');
+  const statusMessage = document.getElementById('status-message');
+  
+  progressBar.style.width = `${percentage}%`;
+  progressPercentage.textContent = `${Math.round(percentage)}%`;
+  
+  if (message) {
+    statusMessage.textContent = message;
+    
+    // 根据消息类型更新样式
+    if (message.includes('成功')) {
+      statusMessage.className = 'status-message success';
+    } else if (message.includes('错误')) {
+      statusMessage.className = 'status-message error';
+    } else {
+      statusMessage.className = 'status-message generating';
+    }
+  }
+}
+
+async function generate() {
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  document.getElementById('error').textContent = '';
+  document.getElementById('download').innerHTML = '';
+
+  const progressContainer = document.getElementById('progress-container');
+  progressContainer.style.display = 'block';
+  updateProgressBar(0, '试卷生成中，请稍候...');
+
+  try {
+    const subject = getDynamicValue('subject');
+    const grade = getGradeDetail();
+    const prompt = document.getElementById('prompt').value.trim();
+    const questionCounts = collectQuestionCounts();
+
+    if (!subject) throw new Error('请填写学科名称');
+    if (!grade) throw new Error('请填写适用年级');
+
+    // 组装题型数组
+    const question_types = Object.entries(questionCounts).map(([type, count]) => ({
+      type, count
+    }));
+
+    // 进度条阶段1
+    updateProgressBar(10, '正在提交生成请求...');
+
+    // 发送请求到后端
+    const res = await fetch('/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject,
+        grade,
+        question_types,
+        prompt
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error('后端服务异常，请稍后重试');
+    }
+    const data = await res.json();
+
+    // 进度条阶段2
+    updateProgressBar(80, '正在生成Word文档...');
+
+    // 显示下载链接
+    const link = document.createElement('a');
+    link.className = 'download-link';
+    link.textContent = '⬇️ 下载试卷文件 (Word)';
+    link.href = `/download?path=${encodeURIComponent(data.file)}`;
+    link.download = '';
+    document.getElementById('download').appendChild(link);
+
+    updateProgressBar(100, '试卷生成成功！');
+  } catch (err) {
+    updateProgressBar(100, '生成过程中发生错误');
+    document.getElementById('progress-bar').style.background = 'linear-gradient(90deg, #e74c3c, #c0392b)';
+    document.getElementById('error').textContent = '错误：' + err.message;
+    document.querySelector('.form-container').classList.add('shake');
+    setTimeout(() => {
+      document.querySelector('.form-container').classList.remove('shake');
+    }, 500);
+    setTimeout(() => {
+      progressContainer.style.display = 'none';
+    }, 3000);
+  } finally {
+    setTimeout(() => {
+      updateProgressBar(0);
+      document.getElementById('progress-bar').style.background = 'linear-gradient(90deg, #3498db, #2ecc71)';
+    }, 3000);
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  setupDynamicInputs();
+  addQuestionType();
+});
+</script>
+</body>
+</html>
